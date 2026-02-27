@@ -10,9 +10,8 @@ class ItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = Item
         fields = [
-            'qr_code_id', 'name', 'category', 'storage_location', 
-            'description', 'serial_number', 'condition', 
-            'image', 'status', 'is_bulk', 'stock_quantity', 'available_quantity' # Added the new fields
+            'qr_code_id', 'name', 
+            'description', 'status', 'is_bulk', 'stock_quantity', 'available_quantity'
         ]
 
     def get_available_quantity(self, obj):
@@ -35,5 +34,4 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Transaction
-        # Added 'due_date' to the fields list
-        fields = ['id', 'item', 'item_name', 'borrower', 'borrower_name', 'borrowed_at', 'due_date', 'returned_at', 'status']
+        fields = ['id', 'item', 'item_name', 'borrower', 'borrower_name','quantity', 'borrowed_at', 'due_date', 'returned_at', 'status']
