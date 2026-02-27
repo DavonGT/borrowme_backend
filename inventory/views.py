@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.utils import timezone
 from .models import Item, Transaction
-from .serializers import ItemSerializer
+from .serializers import ItemSerializer, TransactionSerializer
 from django.contrib.auth.models import User
 from django.db import transaction
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
@@ -112,3 +112,13 @@ def return_item(request):
         return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
          return Response({'error': 'An error occurred processing your request.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def my_borrowed_items(request):
+    """Returns a list of ACTIVE transactions for the logged-in user."""
+    transactions = Transaction.objects.filter(borrower=request.user, status='ACTIVE').order_by('-borrowed_at')
+    serializer = TransactionSerializer(transactions, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
