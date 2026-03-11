@@ -10,6 +10,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from django.db.models import Sum
+from django.db.models import Q
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -76,30 +77,27 @@ def borrow_item(request):
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def return_item(request):
-    """Marks an active transaction as returned and frees up the item."""
-    qr_code_id = request.data.get('qr_code_id')
-    user = request.user
+    """Marks a SPECIFIC active transaction as returned."""
+    # We now ask for transaction_id instead of qr_code_id
+    transaction_id = request.data.get('transaction_id')
+    user = request.user 
     
     try:
-        item = Item.objects.get(qr_code_id=qr_code_id)
-        transaction_record = Transaction.objects.filter(
-            item=item, 
+        # Find the EXACT transaction the user clicked on
+        transaction_record = Transaction.objects.get(
+            id=transaction_id, 
             borrower=user, 
             status='ACTIVE'
-        ).order_by('borrowed_at').first()
+        )
 
-        if not transaction_record:
-            return Response(
-                {'error': "You don't have any active borrows for this item."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        item = transaction_record.item
 
-        # Close the user's specific transaction
+        # Close the specific transaction
         transaction_record.status = 'RETURNED'
         transaction_record.returned_at = timezone.now()
         transaction_record.save()
 
-        # Only change the physical item's status back to AVAILABLE if it's a unique item (like a projector)
+        # Only change the physical item's status back to AVAILABLE if it's a unique item
         if not item.is_bulk:
             item.status = 'AVAILABLE'
             item.save()
@@ -108,8 +106,11 @@ def return_item(request):
             'message': f'Successfully returned {transaction_record.quantity} {item.name}(s)'
         }, status=status.HTTP_200_OK)
 
-    except Item.DoesNotExist:
-        return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Transaction.DoesNotExist:
+        return Response(
+            {'error': "Transaction not found or already returned."}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
     except Exception as e:
          return Response({'error': 'An error occurred processing your request.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -121,4 +122,16 @@ def my_borrowed_items(request):
     """Returns a list of ACTIVE transactions for the logged-in user."""
     transactions = Transaction.objects.filter(borrower=request.user, status='ACTIVE').order_by('-borrowed_at')
     serializer = TransactionSerializer(transactions, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def available_items(request):
+    """Returns a list of items that can be borrowed."""
+    # This fetches items that are either bulk (chairs/brooms) OR unique items that are strictly 'AVAILABLE'
+    items = Item.objects.filter(Q(is_bulk=True) | Q(status='AVAILABLE')).order_by('name')
+    
+    serializer = ItemSerializer(items, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
