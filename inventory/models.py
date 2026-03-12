@@ -45,3 +45,31 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.item.name} borrowed by {self.borrower.username}"
+
+
+class ReturnAuthorization(models.Model):
+    token_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='generated_return_authorizations')
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='used_return_authorizations'
+    )
+    used_for_transaction = models.ForeignKey(
+        Transaction,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='return_authorizations'
+    )
+
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+    def __str__(self):
+        return f"Return auth created by {self.created_by.username} at {self.created_at}"
