@@ -368,3 +368,57 @@ class AdminAccessTests(APITestCase):
 
 		self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 		self.assertEqual(response.data['error'], 'Admin/staff accounts are not allowed to borrow items.')
+
+
+class ItemsEndpointTests(APITestCase):
+	def setUp(self):
+		self.borrower = User.objects.create_user(username='borrower', password='borrower-pass')
+		self.borrower_token = Token.objects.create(user=self.borrower)
+
+		self.item1 = Item.objects.create(
+			qr_code_id='QR-ITEM-001',
+			name='Item 1',
+			status='AVAILABLE',
+			is_bulk=False,
+			stock_quantity=1,
+		)
+		self.item2 = Item.objects.create(
+			qr_code_id='QR-ITEM-002',
+			name='Item 2',
+			status='BORROWED',
+			is_bulk=False,
+			stock_quantity=1,
+		)
+		self.item3 = Item.objects.create(
+			qr_code_id='QR-ITEM-BULK',
+			name='Bulk Item',
+			status='AVAILABLE',
+			is_bulk=True,
+			stock_quantity=10,
+		)
+
+	def test_get_all_items_requires_authentication(self):
+		response = self.client.get('/api/items/')
+		self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+	def test_get_all_items_returns_all_items(self):
+		self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.borrower_token.key}')
+
+		response = self.client.get('/api/items/')
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		self.assertEqual(len(response.data), 3)
+		item_names = [item['name'] for item in response.data]
+		self.assertIn('Item 1', item_names)
+		self.assertIn('Item 2', item_names)
+		self.assertIn('Bulk Item', item_names)
+
+	def test_get_all_items_includes_borrowed_items(self):
+		self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.borrower_token.key}')
+
+		response = self.client.get('/api/items/')
+
+		self.assertEqual(response.status_code, status.HTTP_200_OK)
+		borrowed_items = [item for item in response.data if item['status'] == 'BORROWED']
+		self.assertEqual(len(borrowed_items), 1)
+		self.assertEqual(borrowed_items[0]['name'], 'Item 2')

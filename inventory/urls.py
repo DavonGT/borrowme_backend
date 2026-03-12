@@ -10,5 +10,6 @@ urlpatterns = [
     path('return-auth/generate/', views.generate_return_token, name='generate_return_token'),
     path('return/', views.return_item, name='return_item'),
     path('my-borrows/', views.my_borrowed_items, name='my_borrows'),
+    path('items/', views.get_all_items, name='get_all_items'),
     path('items/available/', views.available_items, name='available_items'),
 ]

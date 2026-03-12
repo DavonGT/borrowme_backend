@@ -272,6 +272,16 @@ def my_borrowed_items(request):
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
+def get_all_items(request):
+    """Returns all items in the inventory."""
+    items = Item.objects.all().order_by('name')
+    serializer = ItemSerializer(items, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def available_items(request):
     """Returns a list of items that can be borrowed."""
     # This fetches items that are either bulk (chairs/brooms) OR unique items that are strictly 'AVAILABLE'
